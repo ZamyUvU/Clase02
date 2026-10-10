@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tablero financiero de ventas</title>
+<meta name="description" content="Análisis financiero de ventas: ratios, tendencias, previsión, clientes, productos y riesgo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#14213D; --slate:#5B6B7F; --mist:#EEF2F6; --panel:#FFFFFF; --line:#DCE3EA;
+  --teal:#0F8B8D; --teal-soft:#E3F3F3; --coral:#D1495B; --coral-soft:#FBE9EC;
+  --amber:#E9A23B; --amber-soft:#FDF3E1; --indigo:#3D5A99;
+  --r:10px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{margin:0;background:var(--mist);color:var(--ink);font-family:'Plus Jakarta Sans',system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.55;font-variant-numeric:tabular-nums}
+a{color:var(--indigo)}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+
+/* Portada */
+.hero{background:var(--ink);color:#fff;padding:44px 24px 36px}
+.hero-in{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1.3fr 1fr;gap:36px;align-items:end}
+.hero h1{font-size:clamp(28px,4vw,44px);line-height:1.1;margin:0 0 12px;font-weight:800;letter-spacing:-.02em}
+.hero p{margin:0;color:#B9C4D6;max-width:60ch}
+.drop{border:2px dashed #5C6F94;border-radius:var(--r);padding:20px;text-align:center;background:rgba(255,255,255,.04);transition:background .15s,border-color .15s}
+.drop.over{background:rgba(15,139,141,.25);border-color:var(--teal)}
+.drop strong{display:block;font-size:16px;margin-bottom:4px}
+.drop span{color:#B9C4D6;font-size:13px}
+.btns{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+button,.btn{font:inherit;font-weight:600;border:0;border-radius:8px;padding:9px 16px;cursor:pointer;background:var(--teal);color:#fff}
+button.ghost{background:transparent;color:#fff;border:1px solid #5C6F94}
+button:hover,.btn:hover{filter:brightness(1.08)}
+#status{margin-top:10px;font-size:13px;color:#F3C77A;min-height:18px}
+
+/* Barra */
+.bar{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1180px;margin:0 auto;padding:10px 24px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.bar label{font-size:13px;color:var(--slate);display:flex;gap:6px;align-items:center}
+select,input[type=number]{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+input[type=number]{width:120px}
+nav{display:flex;gap:14px;margin-left:auto;flex-wrap:wrap}
+nav a{font-size:13px;text-decoration:none;color:var(--slate);font-weight:600}
+nav a:hover{color:var(--teal)}
+#src{font-size:13px;color:var(--slate)}
+
+main{max-width:1180px;margin:0 auto;padding:8px 24px 64px}
+section{margin-top:44px}
+h2{font-size:24px;margin:0 0 6px;letter-spacing:-.01em}
+.why{border-left:4px solid var(--teal);background:var(--teal-soft);padding:10px 14px;border-radius:0 8px 8px 0;margin:8px 0 18px;max-width:92ch;font-size:14px}
+.why b{color:var(--teal)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.card h3{margin:0 0 10px;font-size:15px}
+.ch{position:relative;height:320px}
+.ch.tall{height:380px}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.kpi .l{font-size:12.5px;color:var(--slate);font-weight:600}
+.kpi .v{font-size:23px;font-weight:800;letter-spacing:-.02em;margin:2px 0}
+.kpi .n{font-size:11.5px;color:var(--slate)}
+.kpi.main{background:var(--ink);color:#fff;border-color:var(--ink)}
+.kpi.main .l,.kpi.main .n{color:#B9C4D6}
+.pos{color:var(--teal)} .neg{color:var(--coral)}
+
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:12.5px;color:var(--slate);font-weight:700;background:#F7F9FB;position:sticky;top:0}
+.scroll{overflow-x:auto;max-height:420px}
+.tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:700}
+.tA{background:var(--teal-soft);color:var(--teal)} .tB{background:var(--amber-soft);color:#9A6411} .tC{background:var(--coral-soft);color:var(--coral)}
+
+.alerts{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.alerts li{padding:11px 14px;border-radius:8px;background:var(--panel);border:1px solid var(--line);border-left-width:5px}
+.alerts li.warn{border-left-color:var(--amber)} .alerts li.bad{border-left-color:var(--coral)} .alerts li.ok{border-left-color:var(--teal)}
+.assump{display:flex;gap:18px;flex-wrap:wrap;align-items:end;margin-bottom:14px}
+.assump label{display:grid;gap:3px;font-size:13px;color:var(--slate);font-weight:600}
+.empty{padding:28px;text-align:center;color:var(--slate)}
+.note{font-size:12.5px;color:var(--slate);margin-top:8px}
+footer{max-width:1180px;margin:0 auto;padding:0 24px 40px;color:var(--slate);font-size:12.5px}
+
+@media (max-width:860px){
+  .hero-in{grid-template-columns:1fr}
+  .g2,.g3{grid-template-columns:1fr}
+  nav{display:none}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-in">
+    <div>
+      <h1>Tablero financiero de ventas</h1>
+      <p>Rentabilidad, tendencia, previsión, riesgo comercial y calidad de datos a partir de tu base de movimientos de venta. Todo se calcula en tu navegador: el archivo no se sube a ningún servidor.</p>
+    </div>
+    <div>
+      <div class="drop" id="drop">
+        <strong>Carga tu BaseDatos.xlsx</strong>
+        <span>Arrastra el archivo aquí o elígelo (.xlsx, .xls, .csv)</span>
+        <div class="btns">
+          <button id="pick">Elegir archivo</button>
+          <button class="ghost" id="demo">Ver muestra (99 filas)</button>
+        </div>
+        <input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
+      </div>
+      <div id="status" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+</header>
+
+<div class="bar">
+  <div class="bar-in">
+    <label>Año <select id="fy"></select></label>
+    <label>Tipo de producto <select id="ft"></select></label>
+    <span id="src"></span>
+    <nav>
+      <a href="#resumen">Resumen</a><a href="#tendencia">Tendencia</a><a href="#prevision">Previsión</a>
+      <a href="#productos">Productos</a><a href="#clientes">Clientes</a><a href="#equipo">Equipo</a>
+      <a href="#alertas">Alertas</a><a href="#calidad">Datos</a><a href="#ratios">Ratios</a>
+    </nav>
+  </div>
+</div>
+
+<main id="app">
+
+<section id="resumen">
+  <h2>Resumen ejecutivo</h2>
+  <div class="why"><b>Por qué importa:</b> son los indicadores que responden en un vistazo si el negocio vende, si gana dinero por cada peso vendido y qué tan expuesto está. Todo lo demás del tablero explica por qué estos números se mueven.</div>
+  <div class="kpis" id="kpis"></div>
+  <div class="card" style="margin-top:16px">
+    <h3>Supuestos editables (la base no trae estos datos)</h3>
+    <div class="assump">
+      <label>Gastos operativos mensuales (COP)<input type="number" id="opex" min="0" step="1000000" value="0"></label>
+      <label>Días promedio de cobro del crédito<input type="number" id="dso" min="0" step="5" value="30"></label>
+    </div>
+    <div class="kpis" id="assumOut"></div>
+    <p class="note">La base solo permite calcular margen bruto. Con gastos operativos se estima el resultado operativo, el punto de equilibrio y la cartera aproximada. Reemplaza los supuestos por datos reales de contabilidad.</p>
+  </div>
+</section>
+
+<section id="tendencia">
+  <h2>Tendencia mensual</h2>
+  <div class="why"><b>Por qué importa:</b> una cifra anual esconde si el negocio acelera o se frena. La serie mensual muestra crecimiento, estacionalidad y si el margen se erosiona aunque las ventas suban.</div>
+  <div class="grid g2">
+    <div class="card"><h3>Ventas y margen bruto (millones COP)</h3><div class="ch"><canvas id="cMes"></canvas></div></div>
+    <div class="card"><h3>Margen bruto % y variación mensual de ventas</h3><div class="ch"><canvas id="cMargen"></canvas></div></div>
+  </div>
+</section>
+
+<section id="prevision">
+  <h2>Previsión de ventas</h2>
+  <div class="why"><b>Por qué importa:</b> planear compras, inventario y caja requiere saber hacia dónde van las ventas. Se ajusta una tendencia lineal a los meses completos (con índice estacional si hay 24 meses o más) y se muestra una banda de confianza del 95 %: cuanto más ancha, más incierta la proyección.</div>
+  <div class="assump"><label>Horizonte <select id="hz"><option value="3">3 meses</option><option value="6" selected>6 meses</option><option value="12">12 meses</option></select></label></div>
+  <div class="grid g2">
+    <div class="card"><h3>Histórico y proyección (millones COP)</h3><div class="ch tall"><canvas id="cFc"></canvas></div><div id="fcNote" class="note"></div></div>
+    <div class="card"><h3>Detalle de la previsión</h3><div id="fcTable" class="scroll"></div></div>
+  </div>
+</section>
+
+<section id="productos">
+  <h2>Productos, marcas y rentabilidad</h2>
+  <div class="why"><b>Por qué importa:</b> vender mucho no es ganar mucho. El Pareto (ABC) dice dónde se concentra el negocio y la matriz volumen–margen separa los productos que generan caja de los que solo mueven unidades con poca utilidad.</div>
+  <div class="grid g3">
+    <div class="card"><h3>Ventas por tipo</h3><div class="ch"><canvas id="cTipo"></canvas></div></div>
+    <div class="card" style="grid-column:span 2"><h3>Ventas y margen % por marca</h3><div class="ch"><canvas id="cMarca"></canvas></div></div>
+  </div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card"><h3>Pareto de productos (ABC)</h3><div class="ch tall"><canvas id="cPareto"></canvas></div></div>
+    <div class="card"><h3>Matriz: unidades vs margen % (tamaño = ventas)</h3><div class="ch tall"><canvas id="cMatriz"></canvas></div></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>Detalle por producto</h3><div id="tProd" class="scroll"></div></div>
+</section>
+
+<section id="clientes">
+  <h2>Clientes, cobro y logística</h2>
+  <div class="why"><b>Por qué importa:</b> depender de un solo cliente o vender casi todo a crédito pone en riesgo la caja. Se mide la concentración (índice HHI), el peso del crédito y la rentabilidad por ciudad y transportadora.</div>
+  <div class="grid g2">
+    <div class="card"><h3>Contado vs crédito</h3><div class="ch"><canvas id="cPago"></canvas></div></div>
+    <div class="card"><h3>Margen % por transportadora</h3><div class="ch"><canvas id="cTransp"></canvas></div></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>Detalle por cliente</h3><div id="tCli" class="scroll"></div></div>
+</section>
+
+<section id="equipo">
+  <h2>Equipo comercial</h2>
+  <div class="why"><b>Por qué importa:</b> permite premiar a quien genera margen (no solo volumen) y detectar si las ventas pasan por áreas que no son comerciales, un tema de control interno.</div>
+  <div class="grid g2">
+    <div class="card"><h3>Ventas por empleado (millones COP)</h3><div class="ch tall"><canvas id="cEmp"></canvas></div></div>
+    <div class="card"><h3>Detalle por empleado</h3><div id="tEmp" class="scroll"></div></div>
+  </div>
+</section>
+
+<section id="alertas">
+  <h2>Hallazgos y alertas automáticas</h2>
+  <div class="why"><b>Por qué importa:</b> convierte los números en decisiones: qué vigilar, qué corregir y dónde hay oportunidad. Se recalcula con cada filtro.</div>
+  <ul class="alerts" id="alerts"></ul>
+</section>
+
+<section id="calidad">
+  <h2>Calidad de datos</h2>
+  <div class="why"><b>Por qué importa:</b> un análisis es tan confiable como su base. Aquí se muestra qué se corrigió automáticamente antes de calcular, para que puedas arreglarlo en el origen.</div>
+  <div class="card"><div id="dq"></div></div>
+</section>
+
+<section id="ratios">
+  <h2>Glosario de ratios y fórmulas</h2>
+  <div class="why"><b>Por qué importa:</b> si el profesor o el gerente pregunta de dónde sale cada número, aquí está la fórmula exacta.</div>
+  <div class="card"><div class="scroll" style="max-height:none"><table>
+    <thead><tr><th>Indicador</th><th style="text-align:left">Fórmula</th><th style="text-align:left">Cómo se lee</th></tr></thead>
+    <tbody>
+      <tr><td>Ventas</td><td style="text-align:left">Precio unitario × Cantidad</td><td style="text-align:left">Ingreso bruto facturado</td></tr>
+      <tr><td>Costo de ventas</td><td style="text-align:left">Costo unitario × Cantidad</td><td style="text-align:left">Lo que costó lo vendido</td></tr>
+      <tr><td>Margen bruto</td><td style="text-align:left">Ventas − Costo de ventas</td><td style="text-align:left">Equivale a la columna «Ingresos» de la base</td></tr>
+      <tr><td>Margen bruto %</td><td style="text-align:left">Margen bruto ÷ Ventas</td><td style="text-align:left">Utilidad por cada peso vendido</td></tr>
+      <tr><td>Markup</td><td style="text-align:left">Margen bruto ÷ Costo de ventas</td><td style="text-align:left">Recargo sobre el costo</td></tr>
+      <tr><td>Ticket promedio</td><td style="text-align:left">Ventas ÷ Número de ventas</td><td style="text-align:left">Valor típico de una transacción</td></tr>
+      <tr><td>Crecimiento m/m</td><td style="text-align:left">Ventas mes ÷ Ventas mes anterior − 1</td><td style="text-align:left">Velocidad de cambio (últimos meses completos)</td></tr>
+      <tr><td>% a crédito</td><td style="text-align:left">Ventas a crédito ÷ Ventas</td><td style="text-align:left">Exposición al riesgo de cobro</td></tr>
+      <tr><td>HHI de clientes</td><td style="text-align:left">Σ (participación del cliente)² × 10.000</td><td style="text-align:left">Menos de 1.500 diversificado; más de 2.500 muy concentrado</td></tr>
+      <tr><td>Clasificación ABC</td><td style="text-align:left">Ventas acumuladas ordenadas: A hasta 80 %, B hasta 95 %, C el resto</td><td style="text-align:left">Prioridad de gestión de productos</td></tr>
+      <tr><td>Punto de equilibrio</td><td style="text-align:left">Gastos operativos ÷ Margen bruto %</td><td style="text-align:left">Ventas mensuales mínimas para no perder</td></tr>
+      <tr><td>Cartera estimada</td><td style="text-align:left">Ventas a crédito mensuales × Días de cobro ÷ 30</td><td style="text-align:left">Dinero por cobrar aproximado</td></tr>
+    </tbody></table></div></div>
+</section>
+
+</main>
+<footer>Las cifras están en pesos colombianos (COP). La columna «Ingresos» de la base se interpreta como margen bruto; el tablero la recalcula desde precio, costo y cantidad.</footer>
+
+<script>
+/* ============ Utilidades ============ */
+const $ = s => document.querySelector(s);
+const MES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const COL = {ink:'#14213D',teal:'#0F8B8D',coral:'#D1495B',amber:'#E9A23B',indigo:'#3D5A99',slate:'#6B7A8F',grid:'#E3E8EE'};
+const PAL = [COL.teal,COL.indigo,COL.amber,COL.coral,'#7A9E7E','#8E6C8A','#5B6B7F','#B5651D'];
+const nf0 = new Intl.NumberFormat('es-CO',{maximumFractionDigits:0});
+const nf1 = new Intl.NumberFormat('es-CO',{minimumFractionDigits:1,maximumFractionDigits:1});
+const money = v => '$ ' + nf0.format(v);
+const mm = v => '$ ' + nf1.format(v/1e6) + ' M';
+const pct = v => isFinite(v) ? nf1.format(v*100) + ' %' : '—';
+const sum = a => a.reduce((s,x)=>s+x,0);
+const mean = a => a.length ? sum(a)/a.length : 0;
+const pad = n => String(n).padStart(2,'0');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+
+if (window.Chart) {
+  Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
+  Chart.defaults.color = '#5B6B7F';
+  Chart.defaults.borderColor = COL.grid;
+}
+const charts = {};
+function draw(id, cfg){
+  if (!window.Chart) return;
+  if (charts[id]) charts[id].destroy();
+  cfg.options = Object.assign({responsive:true, maintainAspectRatio:false}, cfg.options||{});
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+
+/* ============ Lectura y limpieza ============ */
+function num(v, dq, key){
+  if (typeof v === 'number') return v;
+  if (v == null || v === '') return NaN;
+  let s = String(v).trim().replace(/[$\s]/g,'');
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g,'').replace(',','.');
+  else if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s = s.replace(/,/g,'');
+  else s = s.replace(',','.');
+  const n = parseFloat(s);
+  if (!isNaN(n) && dq) dq[key] = (dq[key]||0) + 1;
+  return n;
+}
+function toDate(v){
+  if (v instanceof Date && !isNaN(v)) {
+    const d = new Date(v.getTime() + 12*36e5);
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  }
+  if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(Math.floor((v-25569))*864e5);
+  if (typeof v === 'string') {
+    const s = v.trim(); let m;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
+    if ((m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/))) {
+      let a = +m[1], b = +m[2], y = +m[3]; if (y < 100) y += 2000;
+      const mo = a > 12 ? b : a, d = a > 12 ? a : b;
+      return new Date(Date.UTC(y, mo-1, d));
+    }
+  }
+  return null;
+}
+const TIPOS = {'celuar':'Celular','celular':'Celular','celulares':'Celular','portatil':'Portátil','portatiles':'Portátil','pc mesa':'PC Mesa','pc de mesa':'PC Mesa','escritorio':'PC Mesa'};
+const MARCAS = {'samsum':'Samsung','samsung':'Samsung'};
+function title(s){ return s.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase()); }
+
+function mapCols(keys){
+  const find = (...cands) => {
+    for (const c of cands){ const k = keys.find(k => norm(k) === c); if (k) return k; }
+    for (const c of cands){ const k = keys.find(k => norm(k).startsWith(c)); if (k) return k; }
+    return null;
+  };
+  return {fecha:find('fecha'), prod:find('producto'), tipo:find('tipo'), marca:find('marca'), precio:find('precio'),
+    costo:find('costo'), cant:find('cant'), pago:find('pago'), cli:find('cliente'), ciudad:find('ciudad'),
+    transp:find('transportadora'), tcli:find('tipo cliente'), emp:find('empleado'), area:find('area'),
+    prof:find('profesion'), ing:find('ingresos')};
+}
+
+function buildRows(raw){
+  const dq = {filas:raw.length, descartadas:0, costoTexto:0, precioTexto:0, tipo:0, marca:0, pago:0, ingMismatch:0, sinCosto:0};
+  if (!raw.length) throw new Error('El archivo no tiene filas.');
+  const c = mapCols(Object.keys(raw[0]));
+  const faltan = ['fecha','prod','precio','costo','cant'].filter(k => !c[k]);
+  if (faltan.length) throw new Error('No encontré estas columnas: ' + faltan.join(', ') + '. Revisa que la fila 1 tenga los encabezados (Fecha, Producto, Precio (u), Costo, Cant (u)).');
+  const prodKey = new Map(), out = [];
+  for (const r of raw){
+    const d = toDate(r[c.fecha]);
+    const precio = num(r[c.precio], dq, 'precioTexto'), costo = num(r[c.costo], dq, 'costoTexto'), cant = num(r[c.cant]);
+    if (!d || isNaN(precio) || isNaN(costo) || isNaN(cant)) { dq.descartadas++; continue; }
+    const g = (k, def) => { const v = c[k] ? r[c[k]] : null; return (v == null || String(v).trim() === '') ? def : String(v).replace(/\s+/g,' ').trim(); };
+    let tipo = g('tipo','Sin tipo'), t0 = tipo; tipo = TIPOS[norm(tipo)] || title(tipo); if (tipo !== t0) dq.tipo++;
+    let marca = g('marca','Sin marca'), m0 = marca; marca = MARCAS[norm(marca)] || (marca === marca.toUpperCase() ? marca : title(marca)); if (marca !== m0) dq.marca++;
+    let pago = g('pago','Sin dato'), p0 = pago; const pn = norm(pago);
+    pago = pn.startsWith('cred') ? 'Crédito' : pn.startsWith('cont') ? 'Contado' : pago; if (pago !== p0) dq.pago++;
+    let prod = g('prod','Sin producto'); const pk = norm(prod); if (!prodKey.has(pk)) prodKey.set(pk, prod); prod = prodKey.get(pk);
+    const ventas = precio*cant, ctot = costo*cant, mb = ventas - ctot;
+    if (c.ing){ const ing = num(r[c.ing]); if (!isNaN(ing) && Math.abs(ing - mb) > 1) dq.ingMismatch++; }
+    if (costo <= 0) dq.sinCosto++;
+    out.push({d, y:d.getUTCFullYear(), mo:d.getUTCMonth(), ym:d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1),
+      prod, tipo, marca, precio, costo, cant, pago, cli:g('cli','Sin cliente'), ciudad:g('ciudad','Sin ciudad'),
+      transp:g('transp','Sin dato'), tcli:g('tcli','–'), emp:g('emp','Sin dato'), area:g('area','–'), prof:g('prof','–'),
+      ventas, ctot, mb});
+  }
+  if (!out.length) throw new Error('Ninguna fila tenía fecha, precio, costo y cantidad válidos.');
+  return {rows:out, dq};
+}
+
+/* ============ Muestra (primeras 99 filas de la base) ============ */
+function sampleRaw(){
+  const P = [['iPhone 11',3048952,2560000,'Celuar','Apple'],['Xiaomi 13T',1870000,1650000,'Celuar','Xiaomi'],['Vivo x80',2600000,2300000,'Celuar','Vivo'],
+    ['Xiaomi redmi 8',3577480,3100000,'Celuar','Xiaomi'],['Galaxy jpro',4969724,4121560,'Celuar','Samsum'],['iPhone 13 pro',3319925,2800000,'Celuar','Apple'],
+    ['iPhone 13 pro max',4757880,3450000,'Celuar','Apple'],['13ultra',3545808,3350000,'Celuar','Xiaomi'],['Galaxy s23',4200743,4101000,'Celuar','Samsum'],
+    ['Lenovo 14IGL7',8220549,6500000,'Portátil','Lenovo'],['Gaming F15',7687274,6500000,'Portátil','Asus'],['ASPIRE 3',5684211,4300000,'Portátil','Acer'],
+    ['15 Pulgadas Ip1 Athlon',3370302,2100000,'Portátil','Lenovo'],['Apple MacBook',2852897,2450000,'Portátil','Apple'],['MacBook Air',4803603,4121000,'Portátil','Apple'],
+    ['MacBook Pro',5689947,5235000,'Portátil','Apple'],['Intel Corei7',5171827,4890000,'Pc Mesa','Intel'],['JANUS',2805124,2178000,'Pc Mesa','Janus'],
+    ['INTEL CORE i3',2728100,2321000,'Pc Mesa','Intel'],['ASUS AIO V',4941716,4456000,'Pc Mesa','Asus']];
+  const CL = [['Smart S.A.S','Medellín','Fluvial','A'],['Asociados LTDA','Bogotá','Terrestre','A'],['FullStark','Bucaramanga','Aereo','B'],['Distribuidora Oriente','Cali','Terrestre','C']];
+  const EM = {Diego:['Compras','Ing. Industrial'],Matias:['Almacen','Administrador'],Daniela:['Despachos','Contador'],Paola:['Logística','Ing.Sistemas'],
+    Hernan:['Compras','Administrador'],Lina:['Ventas','Ing.Sistemas'],Juan:['Ventas','Ing.Industrial'],Martha:['Administracion','Contador'],
+    Liliana:['Gerencia','Técnico de sofware'],Alejandra:['Control de calidad','Administrador']};
+  const S = '01-01,0,4,C,S,Diego;01-01,1,11,C,A,Diego;01-01,2,13,K,F,Diego;01-02,3,23,C,A,Matias;01-02,4,20,C,A,Daniela;01-03,5,9,K,F,Paola;01-03,6,7,C,A,Hernan;01-03,7,12,C,D,Matias;01-03,8,12,K,F,Diego;01-03,9,13,C,A,Matias;01-03,10,9,C,A,Lina;01-03,11,9,C,A,Hernan;'
+  + '01-04,12,32,K,F,Paola;01-04,13,2,K,F,Diego;01-04,14,5,C,A,Juan;01-04,15,13,C,S,Juan;01-04,16,9,C,A,Lina;01-04,17,25,C,A,Martha;01-05,18,6,C,S,Martha;01-05,19,30,C,A,Liliana;'
+  + '01-06,0,6,C,A,Daniela;01-06,1,6,C,A,Lina;01-06,2,19,C,A,Juan;01-06,3,6,C,A,Diego;01-07,4,11,C,D,Juan;01-07,5,3,C,D,Paola;01-07,6,15,K,F,Liliana;01-07,7,11,C,D,Matias;01-07,8,3,C,S,Liliana;'
+  + '01-08,9,21,C,D,Paola;01-08,10,20,C,A,Hernan;01-08,11,1,C,S,Daniela;01-08,12,17,K,F,Diego;01-08,13,13,C,A,Juan;01-10,14,5,C,A,Liliana;01-10,15,21,C,D,Diego;01-10,16,16,C,A,Matias;'
+  + '01-11,17,25,C,A,Matias;01-11,18,10,C,A,Lina;01-12,19,17,C,D,Alejandra;01-12,0,7,C,S,Paola;01-12,1,23,C,A,Matias;01-12,2,10,K,F,Liliana;01-13,3,13,C,A,Matias;01-13,4,2,C,D,Hernan;01-13,5,10,C,S,Diego;'
+  + '01-14,6,14,C,A,Paola;01-14,7,19,C,A,Diego;01-14,8,9,C,A,Juan;01-15,9,10,C,D,Hernan;01-15,10,3,C,A,Lina;01-15,11,15,K,F,Juan;01-16,12,8,C,A,Martha;01-16,13,12,C,D,Hernan;01-17,14,15,C,A,Hernan;'
+  + '01-17,15,18,C,D,Matias;01-17,16,17,C,A,Hernan;01-19,17,11,K,F,Juan;01-19,18,12,C,A,Paola;01-19,19,19,C,S,Hernan;01-19,0,20,C,S,Paola;01-19,1,16,C,D,Daniela;01-19,2,16,C,A,Lina;01-19,3,13,K,F,Paola;'
+  + '01-21,4,4,C,A,Hernan;01-22,5,14,C,A,Martha;01-22,6,7,C,S,Juan;01-23,7,7,C,D,Paola;01-23,8,4,C,A,Hernan;01-23,9,25,C,A,Diego;01-23,10,13,K,F,Diego;01-23,11,1,C,A,Liliana;01-25,12,15,K,F,Hernan;'
+  + '01-25,13,12,C,S,Paola;01-25,14,22,C,A,Daniela;01-26,15,6,C,A,Lina;01-27,16,6,C,A,Juan;01-27,17,30,C,D,Diego;01-28,18,5,C,D,Alejandra;01-28,19,15,C,A,Hernan;01-28,0,19,C,S,Lina;01-29,1,15,C,A,Paola;'
+  + '01-29,2,13,C,A,Daniela;01-29,3,25,C,A,Martha;01-30,4,16,C,A,Daniela;01-30,5,9,C,S,Lina;01-30,6,15,C,S,Diego;01-30,7,18,C,A,Liliana;01-31,8,5,C,A,Liliana;01-31,9,8,K,F,Alejandra;'
+  + '02-01,10,17,C,A,Daniela;02-02,11,14,C,A,Liliana;02-02,12,9,C,A,Diego;02-02,13,8,C,S,Matias;02-04,14,7,K,F,Martha;02-04,15,13,C,A,Liliana;02-04,16,9,K,F,Diego;02-04,17,6,C,S,Matias;02-04,18,19,K,F,Paola';
+  const idx = {S:0, A:1, F:2, D:3};
+  return S.split(';').map(l => {
+    const [md,p,q,pg,cl,em] = l.split(','); const [mo,da] = md.split('-').map(Number);
+    const pr = P[+p], cli = CL[idx[cl]], e = EM[em];
+    return {Fecha:new Date(Date.UTC(2022,mo-1,da,12)), Producto:pr[0], Tipo:pr[3], Marca:pr[4], 'Precio (u)':pr[1], Costo:pr[2], 'Cant (u)':+q,
+      'Pago del cliente':pg==='C'?'Crédito':'Contado', Cliente:cli[0], 'Ciudad cliente':cli[1], Transportadora:cli[2], 'Tipo cliente':cli[3],
+      Empleado:em, Area:e[0], Profesion:e[1]};
+  });
+}
+
+/* ============ Cálculos ============ */
+let ROWS = [], DQ = null, SRC = '';
+const F = {y:'all', t:'all'};
+
+function agg(rows, keyFn){
+  const m = new Map();
+  for (const r of rows){
+    const k = keyFn(r); let a = m.get(k);
+    if (!a){ a = {k, ventas:0, ctot:0, mb:0, cant:0, n:0, cred:0, first:r}; m.set(k,a); }
+    a.ventas += r.ventas; a.ctot += r.ctot; a.mb += r.mb; a.cant += r.cant; a.n++;
+    if (r.pago === 'Crédito') a.cred += r.ventas;
+  }
+  return [...m.values()];
+}
+function monthly(rows){
+  const a = agg(rows, r => r.ym).sort((x,y) => x.k < y.k ? -1 : 1);
+  if (!a.length) return [];
+  const byK = new Map(a.map(x => [x.k,x])), out = [];
+  let [y,m] = a[0].k.split('-').map(Number); const [ey,em] = a[a.length-1].k.split('-').map(Number);
+  while (y < ey || (y === ey && m <= em)){
+    const k = y+'-'+pad(m); out.push(byK.get(k) || {k, ventas:0, ctot:0, mb:0, cant:0, n:0, cred:0});
+    m++; if (m > 12){ m = 1; y++; }
+  }
+  return out;
+}
+const lblMes = k => MES[+k.slice(5)-1] + ' ' + k.slice(2,4);
+
+function forecast(ms, h){
+  const n = ms.length; if (n < 6) return null;
+  const y = ms.map(m => m.ventas), t = y.map((_,i) => i), tb = mean(t), yb = mean(y);
+  const sxx = sum(t.map(x => (x-tb)**2)), b = sum(t.map((x,i) => (x-tb)*(y[i]-yb))) / sxx, a = yb - b*tb;
+  let si = Array(12).fill(1), seasonal = false;
+  if (n >= 24){
+    const rs = Array.from({length:12}, () => []);
+    ms.forEach((m,i) => { const tr = a + b*i; if (tr > 0) rs[+m.k.slice(5)-1].push(m.ventas/tr); });
+    si = rs.map(r => r.length ? mean(r) : 1); const av = mean(si); si = si.map(v => v/av); seasonal = true;
+  }
+  const fit = t.map((x,i) => (a + b*x) * si[+ms[i].k.slice(5)-1]);
+  const sse = sum(y.map((v,i) => (v-fit[i])**2)), s = Math.sqrt(sse / Math.max(1, n-2));
+  const sst = sum(y.map(v => (v-yb)**2)), r2 = sst ? 1 - sse/sst : 0;
+  let [yy,mm_] = ms[n-1].k.split('-').map(Number); const fut = [];
+  for (let j = 1; j <= h; j++){
+    mm_++; if (mm_ > 12){ mm_ = 1; yy++; }
+    const i = n-1+j, f = Math.max(0, (a + b*i) * si[mm_-1]), se = s * Math.sqrt(1 + 1/n + (i-tb)**2/sxx);
+    fut.push({k:yy+'-'+pad(mm_), f, lo:Math.max(0, f-1.96*se), hi:f+1.96*se});
+  }
+  return {fit, fut, slope:b, r2, seasonal};
+}
+
+/* ============ Render ============ */
+function table(headers, rows, aligns){
+  return '<table><thead><tr>' + headers.map(h => '<th>'+h+'</th>').join('') + '</tr></thead><tbody>' +
+    rows.map(r => '<tr>' + r.map(c => '<td>'+c+'</td>').join('') + '</tr>').join('') + '</tbody></table>';
+}
+const kpi = (l,v,n,cls) => '<div class="kpi '+(cls||'')+'"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="n">'+n+'</div></div>';
+const sgn = v => (v >= 0 ? '+' : '') + nf1.format(v*100) + ' %';
+const cl = v => v >= 0 ? 'pos' : 'neg';
+
+function render(){
+  const app = $('#app');
+  const rows = ROWS.filter(r => (F.y === 'all' || r.y == F.y) && (F.t === 'all' || r.tipo === F.t));
+  if (!rows.length){ $('#kpis').innerHTML = '<div class="empty">No hay datos para este filtro.</div>'; return; }
+
+  const ventas = sum(rows.map(r=>r.ventas)), ctot = sum(rows.map(r=>r.ctot)), mb = ventas - ctot, unid = sum(rows.map(r=>r.cant)), n = rows.length;
+  const cred = sum(rows.filter(r=>r.pago==='Crédito').map(r=>r.ventas));
+  const ms = monthly(rows), maxD = new Date(Math.max(...rows.map(r=>r.d)));
+  const dim = new Date(Date.UTC(maxD.getUTCFullYear(), maxD.getUTCMonth()+1, 0)).getUTCDate();
+  const partial = maxD.getUTCDate() < dim - 3;
+  const full = partial ? ms.slice(0,-1) : ms;
+  let mom = NaN, yoy = NaN;
+  if (full.length >= 2 && full[full.length-2].ventas) mom = full[full.length-1].ventas / full[full.length-2].ventas - 1;
+  if (full.length >= 13){ const l = full[full.length-1], p = full[full.length-13]; if (p.ventas) yoy = l.ventas/p.ventas - 1; }
+  const cli = agg(rows, r=>r.cli).sort((a,b)=>b.ventas-a.ventas), hhi = sum(cli.map(c => (c.ventas/ventas)**2)) * 10000;
+
+  $('#kpis').innerHTML =
+    kpi('Ventas', mm(ventas), n+' ventas · '+nf0.format(unid)+' unidades','main') +
+    kpi('Margen bruto', mm(mb), 'Ventas − costo de ventas','main') +
+    kpi('Margen bruto %', pct(mb/ventas), 'Utilidad por cada peso vendido') +
+    kpi('Markup', pct(mb/ctot), 'Margen ÷ costo') +
+    kpi('Ticket promedio', mm(ventas/n), 'Ventas ÷ número de ventas') +
+    kpi('Precio medio por unidad', money(ventas/unid), 'Ventas ÷ unidades') +
+    kpi('Crecimiento m/m', isNaN(mom) ? '—' : '<span class="'+cl(mom)+'">'+sgn(mom)+'</span>', isNaN(mom) ? 'Se necesitan 2 meses completos' : 'Último mes completo vs anterior') +
+    kpi('Crecimiento a/a', isNaN(yoy) ? '—' : '<span class="'+cl(yoy)+'">'+sgn(yoy)+'</span>', isNaN(yoy) ? 'Se necesitan 13 meses completos' : 'Último mes vs mismo mes año previo') +
+    kpi('Ventas a crédito', pct(cred/ventas), 'Exposición al riesgo de cobro') +
+    kpi('Cliente principal', pct(cli[0].ventas/ventas), esc(cli[0].k)) +
+    kpi('HHI de clientes', nf0.format(hhi), hhi > 2500 ? 'Muy concentrado' : hhi > 1500 ? 'Concentración moderada' : 'Diversificado') +
+    kpi('Período', ms.length+' mes'+(ms.length>1?'es':''), lblMes(ms[0].k)+' a '+lblMes(ms[ms.length-1].k));
+
+  /* Supuestos */
+  const opex = +$('#opex').value || 0, dso = +$('#dso').value || 0, nm = Math.max(1, full.length || ms.length);
+  const mbMes = mb / (partial ? Math.max(1, ms.length-1) : ms.length) , ventasMes = ventas / (partial ? Math.max(1, ms.length-1) : ms.length);
+  const credMes = cred / (partial ? Math.max(1, ms.length-1) : ms.length);
+  const resOp = (full.length ? mean(full.map(m=>m.mb)) : mbMes) - opex;
+  $('#assumOut').innerHTML =
+    kpi('Margen bruto mensual medio', mm(full.length ? mean(full.map(m=>m.mb)) : mbMes), 'Meses completos') +
+    kpi('Resultado operativo mensual', '<span class="'+cl(resOp)+'">'+mm(resOp)+'</span>', 'Margen bruto − gastos operativos') +
+    kpi('Punto de equilibrio mensual', opex ? mm(opex/(mb/ventas)) : '—', opex ? 'Ventas necesarias para cubrir gastos' : 'Ingresa gastos operativos') +
+    kpi('Cartera estimada', mm((full.length ? mean(full.map(m=>m.cred)) : credMes) * dso/30), 'Crédito mensual × días ÷ 30');
+
+  /* Tendencia */
+  const lab = ms.map(m => lblMes(m.k));
+  draw('cMes', {data:{labels:lab, datasets:[
+    {type:'bar', label:'Ventas', data:ms.map(m=>m.ventas/1e6), backgroundColor:'#B9C8E3', borderRadius:4, order:2},
+    {type:'line', label:'Margen bruto', data:ms.map(m=>m.mb/1e6), borderColor:COL.teal, backgroundColor:COL.teal, tension:.25, order:1}]},
+    options:{scales:{y:{beginAtZero:true,title:{display:true,text:'Millones COP'}}}}});
+  draw('cMargen', {data:{labels:lab, datasets:[
+    {type:'line', label:'Margen bruto %', data:ms.map(m=>m.ventas ? m.mb/m.ventas*100 : null), borderColor:COL.indigo, backgroundColor:COL.indigo, tension:.25, yAxisID:'y'},
+    {type:'bar', label:'Var. ventas m/m %', data:ms.map((m,i)=> i && ms[i-1].ventas ? (m.ventas/ms[i-1].ventas-1)*100 : null), backgroundColor:'#F1C98C', borderRadius:4, yAxisID:'y1'}]},
+    options:{scales:{y:{title:{display:true,text:'Margen %'}}, y1:{position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'Variación %'}}}}});
+
+  /* Previsión */
+  const h = +$('#hz').value, fc = forecast(full, h);
+  if (!fc){
+    draw('cFc', {type:'line', data:{labels:[], datasets:[]}});
+    $('#fcNote').innerHTML = '<b>Datos insuficientes:</b> para proyectar se necesitan al menos 6 meses completos y hay '+full.length+'. Carga la base completa para ver la previsión.' + (partial ? ' El último mes está incompleto y se excluye del ajuste.' : '');
+    $('#fcTable').innerHTML = '<div class="empty">Sin previsión disponible.</div>';
+  } else {
+    const L = full.map(m => lblMes(m.k)).concat(fc.fut.map(f => lblMes(f.k))), nh = full.length;
+    const pad_ = a => a.concat(Array(fc.fut.length).fill(null)), lead = a => Array(nh-1).fill(null).concat(a);
+    const last = full[nh-1].ventas/1e6;
+    draw('cFc', {type:'line', data:{labels:L, datasets:[
+      {label:'Ventas reales', data:pad_(full.map(m=>m.ventas/1e6)), borderColor:COL.ink, backgroundColor:COL.ink, tension:.2},
+      {label:'Ajuste', data:pad_(fc.fit.map(v=>v/1e6)), borderColor:COL.slate, borderDash:[4,4], pointRadius:0},
+      {label:'Previsión', data:lead([last].concat(fc.fut.map(f=>f.f/1e6))), borderColor:COL.teal, backgroundColor:COL.teal, borderWidth:3},
+      {label:'_lo', data:lead([last].concat(fc.fut.map(f=>f.lo/1e6))), borderColor:'transparent', pointRadius:0},
+      {label:'_hi', data:lead([last].concat(fc.fut.map(f=>f.hi/1e6))), borderColor:'transparent', pointRadius:0, backgroundColor:'rgba(15,139,141,.18)', fill:'-1'}]},
+      options:{scales:{y:{beginAtZero:true,title:{display:true,text:'Millones COP'}}},
+        plugins:{legend:{labels:{filter:i=>!i.text.startsWith('_')}}, tooltip:{filter:i=>!i.dataset.label.startsWith('_')}}}});
+    $('#fcNote').innerHTML = 'Tendencia ' + (fc.slope >= 0 ? 'creciente' : 'decreciente') + ' de ' + mm(Math.abs(fc.slope)) + ' por mes · R² = ' + nf1.format(fc.r2) +
+      (fc.seasonal ? ' · con índice estacional' : ' · sin estacionalidad (menos de 24 meses)') + (partial ? ' · el último mes está incompleto y no se usó' : '') + '.';
+    $('#fcTable').innerHTML = table(['Mes','Previsión','Mínimo 95 %','Máximo 95 %'], fc.fut.map(f => [lblMes(f.k), mm(f.f), mm(f.lo), mm(f.hi)]));
+  }
+
+  /* Productos */
+  const tip = agg(rows, r=>r.tipo).sort((a,b)=>b.ventas-a.ventas);
+  draw('cTipo', {type:'doughnut', data:{labels:tip.map(t=>t.k), datasets:[{data:tip.map(t=>t.ventas/1e6), backgroundColor:PAL}]},
+    options:{plugins:{legend:{position:'bottom'}, tooltip:{callbacks:{label:c=>c.label+': '+nf1.format(c.parsed)+' M'}}}}});
+  const mar = agg(rows, r=>r.marca).sort((a,b)=>b.ventas-a.ventas);
+  draw('cMarca', {data:{labels:mar.map(m=>m.k), datasets:[
+    {type:'bar', label:'Ventas (M COP)', data:mar.map(m=>m.ventas/1e6), backgroundColor:'#B9C8E3', borderRadius:4, yAxisID:'y'},
+    {type:'line', label:'Margen %', data:mar.map(m=>m.mb/m.ventas*100), borderColor:COL.coral, backgroundColor:COL.coral, yAxisID:'y1'}]},
+    options:{scales:{y:{beginAtZero:true}, y1:{position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'Margen %'}}}}});
+
+  const pr = agg(rows, r=>r.prod).sort((a,b)=>b.ventas-a.ventas); let acc = 0;
+  pr.forEach(p => { acc += p.ventas; p.acc = acc/ventas; p.abc = (p.acc - p.ventas/ventas) < 0.8 ? 'A' : (p.acc - p.ventas/ventas) < 0.95 ? 'B' : 'C'; p.mp = p.mb/p.ventas; });
+  const top = pr.slice(0,25);
+  draw('cPareto', {data:{labels:top.map(p=>p.k), datasets:[
+    {type:'bar', label:'Ventas (M COP)', data:top.map(p=>p.ventas/1e6), backgroundColor:top.map(p=>p.abc==='A'?COL.teal:p.abc==='B'?COL.amber:COL.coral), borderRadius:3, yAxisID:'y'},
+    {type:'line', label:'% acumulado', data:top.map(p=>p.acc*100), borderColor:COL.ink, backgroundColor:COL.ink, pointRadius:2, yAxisID:'y1'}]},
+    options:{scales:{x:{ticks:{maxRotation:70,minRotation:45,font:{size:10}}}, y:{beginAtZero:true}, y1:{position:'right',min:0,max:100,grid:{drawOnChartArea:false}}}}});
+  const maxV = Math.max(...pr.map(p=>p.ventas)), tipos = [...new Set(pr.map(p=>p.first.tipo))];
+  draw('cMatriz', {type:'bubble', data:{datasets:tipos.map((t,i)=>({label:t, backgroundColor:PAL[i%PAL.length]+'AA', borderColor:PAL[i%PAL.length],
+    data:pr.filter(p=>p.first.tipo===t).map(p=>({x:p.cant, y:p.mp*100, r:5+18*Math.sqrt(p.ventas/maxV), name:p.k, v:p.ventas}))}))},
+    options:{scales:{x:{title:{display:true,text:'Unidades vendidas'}}, y:{title:{display:true,text:'Margen bruto %'}}},
+      plugins:{tooltip:{callbacks:{label:c=>c.raw.name+': '+nf0.format(c.raw.x)+' u · '+nf1.format(c.raw.y)+' % · '+mm(c.raw.v)}}}}});
+  $('#tProd').innerHTML = table(['Producto','Tipo','Marca','Unid.','Ventas','Margen','Margen %','% acum.','ABC'],
+    pr.map(p => [esc(p.k), esc(p.first.tipo), esc(p.first.marca), nf0.format(p.cant), mm(p.ventas), mm(p.mb),
+      '<span class="'+(p.mp<0.08?'neg':'')+'">'+pct(p.mp)+'</span>', pct(p.acc), '<span class="tag t'+p.abc+'">'+p.abc+'</span>']));
+
+  /* Clientes */
+  const pg = agg(rows, r=>r.pago).sort((a,b)=>b.ventas-a.ventas);
+  draw('cPago', {type:'doughnut', data:{labels:pg.map(p=>p.k), datasets:[{data:pg.map(p=>p.ventas/1e6), backgroundColor:[COL.indigo,COL.amber,COL.slate]}]},
+    options:{plugins:{legend:{position:'bottom'}, tooltip:{callbacks:{label:c=>c.label+': '+nf1.format(c.parsed)+' M'}}}}});
+  const tr = agg(rows, r=>r.transp).sort((a,b)=>b.ventas-a.ventas);
+  draw('cTransp', {type:'bar', data:{labels:tr.map(t=>t.k), datasets:[{label:'Margen %', data:tr.map(t=>t.mb/t.ventas*100), backgroundColor:COL.teal, borderRadius:4}]},
+    options:{scales:{y:{beginAtZero:true,title:{display:true,text:'Margen bruto %'}}}, plugins:{legend:{display:false}}}});
+  $('#tCli').innerHTML = table(['Cliente','Ciudad','Transportadora','Tipo','Ventas','% ventas','Margen %','% a crédito','Unid.'],
+    cli.map(c => [esc(c.k), esc(c.first.ciudad), esc(c.first.transp), esc(c.first.tcli), mm(c.ventas), pct(c.ventas/ventas), pct(c.mb/c.ventas), pct(c.cred/c.ventas), nf0.format(c.cant)]));
+
+  /* Equipo */
+  const em = agg(rows, r=>r.emp).sort((a,b)=>b.ventas-a.ventas);
+  draw('cEmp', {type:'bar', data:{labels:em.map(e=>e.k), datasets:[{label:'Ventas (M COP)', data:em.map(e=>e.ventas/1e6), backgroundColor:COL.indigo, borderRadius:4}]},
+    options:{indexAxis:'y', plugins:{legend:{display:false}}}});
+  $('#tEmp').innerHTML = table(['Empleado','Área','Ventas','Margen %','N.º ventas'], em.map(e => [esc(e.k), esc(e.first.area), mm(e.ventas), pct(e.mb/e.ventas), e.n]));
+
+  /* Alertas */
+  const A = [], add = (c,t) => A.push('<li class="'+c+'">'+t+'</li>');
+  const best = [...pr].sort((a,b)=>b.mp-a.mp)[0], worst = [...pr].sort((a,b)=>a.mp-b.mp)[0];
+  add('ok', '<b>Mayor margen:</b> '+esc(best.k)+' con '+pct(best.mp)+' sobre ventas. <b>Menor margen:</b> '+esc(worst.k)+' con '+pct(worst.mp)+'.');
+  const nA = pr.filter(p=>p.abc==='A').length;
+  add('ok', '<b>Concentración de productos:</b> '+nA+' de '+pr.length+' productos (clase A) generan cerca del 80 % de las ventas.');
+  const low = pr.filter(p=>p.mp < 0.08);
+  if (low.length) add('bad', '<b>Margen inferior al 8 %</b> en '+low.length+' producto(s): '+low.slice(0,6).map(p=>esc(p.k)+' ('+pct(p.mp)+')').join(', ')+'. Cualquier descuento o costo de transporte puede dejarlos en pérdida.');
+  const c0 = cli[0], s0 = c0.ventas/ventas;
+  if (s0 > 0.5) add('bad', '<b>Dependencia de un cliente:</b> '+esc(c0.k)+' aporta '+pct(s0)+' de las ventas. Si se retrasa o se va, el negocio se resiente de inmediato.');
+  else if (s0 > 0.3) add('warn', '<b>Concentración de cliente:</b> '+esc(c0.k)+' aporta '+pct(s0)+' de las ventas.');
+  if (cred/ventas > 0.7) add('warn', '<b>Alta exposición a crédito:</b> '+pct(cred/ventas)+' de las ventas se financian al cliente. Define límites de cupo y seguimiento de cartera.');
+  const ts = rows.map(r=>r.ventas), mu = mean(ts), sd = Math.sqrt(mean(ts.map(v=>(v-mu)**2))), big = rows.filter(r=>r.ventas > mu + 2*sd);
+  if (big.length) add('warn', '<b>Ventas atípicas:</b> '+big.length+' transacción(es) superan el promedio en más de 2 desviaciones estándar ('+mm(mu+2*sd)+'). Verifica descuentos, errores de digitación o clientes estratégicos.');
+  const comercial = rows.filter(r => /venta/i.test(r.area)), fuera = sum(rows.filter(r => !/venta/i.test(r.area)).map(r=>r.ventas));
+  if (comercial.length && fuera/ventas > 0.3) add('warn', '<b>Control interno:</b> '+pct(fuera/ventas)+' de las ventas fueron registradas por empleados de áreas distintas a Ventas (compras, almacén, despachos, etc.). Conviene revisar la segregación de funciones.');
+  if (!isNaN(mom) && mom < -0.1) add('bad', '<b>Caída reciente:</b> las ventas del último mes completo bajaron '+pct(-mom)+' frente al anterior.');
+  if (partial) add('warn', '<b>Último mes incompleto:</b> los datos llegan hasta el '+pad(maxD.getUTCDate())+'/'+pad(maxD.getUTCMonth()+1)+'/'+maxD.getUTCFullYear()+'. Se excluye de crecimiento y previsión para no distorsionarlos.');
+  $('#alerts').innerHTML = A.join('');
+
+  /* Calidad */
+  const q = DQ, items = [
+    ['Filas leídas', q.filas, ''], ['Filas descartadas (fecha o importes inválidos)', q.descartadas, q.descartadas ? 'bad' : ''],
+    ['Importes guardados como texto y convertidos (p. ej. «3.100.000»)', q.costoTexto + q.precioTexto, (q.costoTexto + q.precioTexto) ? 'warn' : ''],
+    ['Tipos de producto corregidos (p. ej. «Celuar» → «Celular»)', q.tipo, q.tipo ? 'warn' : ''],
+    ['Marcas corregidas (p. ej. «Samsum» → «Samsung»)', q.marca, q.marca ? 'warn' : ''],
+    ['Formas de pago normalizadas (mayúsculas distintas)', q.pago, q.pago ? 'warn' : ''],
+    ['Filas donde «Ingresos» no coincide con (Precio − Costo) × Cantidad', q.ingMismatch, q.ingMismatch ? 'bad' : ''],
+    ['Filas con costo igual a cero', q.sinCosto, q.sinCosto ? 'bad' : '']];
+  $('#dq').innerHTML = table(['Control','Casos'], items.map(i => [i[0], '<span class="'+(i[2]==='bad'?'neg':'')+'">'+nf0.format(i[1])+'</span>']));
+}
+
+/* ============ Carga de datos ============ */
+function load(raw, label){
+  try {
+    const res = buildRows(raw); ROWS = res.rows; DQ = res.dq; SRC = label;
+    const ys = [...new Set(ROWS.map(r=>r.y))].sort(), ts = [...new Set(ROWS.map(r=>r.tipo))].sort();
+    $('#fy').innerHTML = '<option value="all">Todos</option>' + ys.map(y => '<option>'+y+'</option>').join('');
+    $('#ft').innerHTML = '<option value="all">Todos</option>' + ts.map(t => '<option>'+esc(t)+'</option>').join('');
+    F.y = 'all'; F.t = 'all';
+    $('#src').textContent = label + ' · ' + ROWS.length + ' filas';
+    $('#status').textContent = '';
+    render();
+  } catch (e){ $('#status').textContent = e.message; }
+}
+function readFile(f){
+  if (!window.XLSX){ $('#status').textContent = 'No se pudo cargar el lector de Excel. Revisa tu conexión a internet.'; return; }
+  $('#status').textContent = 'Leyendo ' + f.name + '…';
+  const rd = new FileReader();
+  rd.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+      const name = wb.SheetNames.find(s => /bdatos|base|datos/i.test(s)) || wb.SheetNames[0];
+      const raw = XLSX.utils.sheet_to_json(wb.Sheets[name], {raw:true, defval:null});
+      load(raw, f.name + ' (hoja «' + name + '»)');
+    } catch (err){ $('#status').textContent = 'No pude leer el archivo: ' + err.message; }
+  };
+  rd.readAsArrayBuffer(f);
+}
+$('#pick').onclick = () => $('#file').click();
+$('#file').onchange = e => e.target.files[0] && readFile(e.target.files[0]);
+$('#demo').onclick = () => load(sampleRaw(), 'Muestra de ejemplo (enero–febrero 2022)');
+const drop = $('#drop');
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => e.dataTransfer.files[0] && readFile(e.dataTransfer.files[0]));
+$('#fy').onchange = e => { F.y = e.target.value; render(); };
+$('#ft').onchange = e => { F.t = e.target.value; render(); };
+['#opex','#dso','#hz'].forEach(s => $(s).addEventListener('input', () => ROWS.length && render()));
+
+load(sampleRaw(), 'Muestra de ejemplo (enero–febrero 2022)');
+</script>
+</body>
+</html>
